@@ -1,0 +1,10 @@
+cradle:
+  cabal:
+    - path: "src"
+      component: "medahat:lib:medahat-internal"
+
+    - path: "src"
+      component: "lib:medahat"
+
+    - path: "app/Main.hs"
+      component: "medahat:exe:mdh"
