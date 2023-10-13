@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module Mdh.Config (getConfig) where
 
 import Data.Aeson (decode)
@@ -7,11 +5,11 @@ import Data.Aeson.Text (encodeToLazyText)
 import qualified Data.ByteString.Lazy as B
 import qualified Data.Text.Lazy.IO as LIO
 import Mdh.Types
-import Mdh.Utils (mdhWarn, formatRelPath)
+import Mdh.Utils (formatRelPath, mdhWarn)
 import Turtle
 
 defaultConfig :: Config
-defaultConfig = Config ("~" </> "medahat") "hx" True
+defaultConfig = Config ("~" </> "Documents") "hx" True
 
 relConfigDir :: FilePath
 relConfigDir = ".config" </> "medahat"
@@ -36,7 +34,7 @@ loadConfig cfp = do
   raw <- B.readFile cfp
   return (decode raw)
 
-formatCfgPath :: MonadIO io => FilePath -> io FilePath
+formatCfgPath :: (MonadIO io) => FilePath -> io FilePath
 formatCfgPath dir =
   if isAbsolute dir
     then return dir
@@ -47,15 +45,15 @@ getConfig' mOpts cfgFilePath = do
   cfgFileExists <- testfile cfgFilePath
   if cfgFileExists
     then loadConfig cfgFilePath
-    else do 
+    else do
       mdhWarn mOpts "config file doesn't exist, running with default"
       return (Just defaultConfig)
 
 -- | Does the cfg directory exist? if not this func makes it
 -- Does the cfg file exist? if not this func makes it
 -- Returns a configuration i
-getConfig :: MonadIO io => Opts -> io (Maybe Config)
-getConfig mOpts = liftIO $ 
+getConfig :: (MonadIO io) => Opts -> io (Maybe Config)
+getConfig mOpts = liftIO $
   case cfgDir mOpts of
     Nothing -> do
       defCfgDir <- getDefaultConfigDirectory
@@ -65,8 +63,9 @@ getConfig mOpts = liftIO $
         then getConfig' mOpts cfgFilePath
         else do
           mdhWarn mOpts "config directory doesn't exist (~/.config/medahat), making new config"
-          mktree defCfgDir 
+          mktree defCfgDir
           mkNewConfig cfgFilePath
     Just cfgFilePath -> (getConfig' mOpts <=< formatCfgPath) cfgFilePath
+
 -- We could also add more complicated search functionality, ie loading any
 -- json file in the cfg dir, maybe a todo

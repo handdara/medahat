@@ -66,17 +66,17 @@ strTreeToShell = select . strTreeToLines' 0
 
 -- # Logging Utilities
 
-mdhLog :: (MonadIO io) => Opts -> Shell Line -> io ()
-mdhLog opts msg = when (verbose opts) (stdout $ "LOG: " <> msg)
+mdhLog :: (MonadIO io, Show a) => Opts -> a -> io ()
+mdhLog opts = when (verbose opts) . stdout . ("LOG: " <>) . repr
 
-mdhWarn :: (MonadIO io) => Opts -> Shell Line -> io ()
-mdhWarn _ = stderr . ("WARNING: " <>)
+mdhWarn :: (MonadIO io, Show a) => Opts -> a -> io ()
+mdhWarn _ = stderr . ("WARNING: "<>) . repr
 
-mdhDie :: (MonadIO io) => Text -> io ()
-mdhDie = die . ("KILLED: " <>)
+mdhDie :: (MonadIO io, Show a) => a -> io ()
+mdhDie = die . ("KILLED: " <>) . repr
 
 mdhError :: String -> a
-mdhError = error . ("ERROR: " <>)
+mdhError = error . ("ERROR: " <>) . repr
 
 -- # File/Directory Management
 

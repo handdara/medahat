@@ -1,6 +1,6 @@
 cabal-version:      3.6
 name:               medahat
-version:            0.1.0.1
+version:            0.1.0.2
 
 -- A short (one-line) description of the package.
 -- synopsis: markdown tool for handdara
@@ -31,7 +31,7 @@ common shared-props
         turtle,
         foldl,
         bytestring
-    ghc-options: -Wall 
+    ghc-options: -Wall -Wno-type-defaults
     default-extensions: OverloadedStrings
 
 library medahat-internal

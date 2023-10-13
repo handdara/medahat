@@ -5,22 +5,37 @@ module Main where
 import Mdh
 import Turtle
 import Prelude hiding (FilePath)
+import Data.Text (split)
 
 -- # Argument Parsing
 
-optsParser :: Parser Opts
-optsParser = Opts <$>            switch  "verbose" 'v' "Verbose mode allows logs"
-                  <*> optional ( optPath "config"  'c' "Provide config file" )
+nodesParser :: Parser FilePath
+nodesParser = argPath "nodes" "successive sub-collections to search down collection tree"
 
 showNotesParser :: Parser MdhCommands
-showNotesParser = ShowNotes <$> some (argPath "nodes" "nodes in collection tree")
+showNotesParser = ShowNotes <$> some nodesParser
 
 openNoteParser :: Parser MdhCommands
-openNoteParser = undefined
+openNoteParser =
+  OpenNote
+    <$> some (argPath "[nodes] note" "NOTE: note to open, if no extension is given a default `.md` is applied. NODES: successive sub-collections to search down collection tree")
+
+mkNodeParser :: Parser MdhCommands 
+mkNodeParser =
+  MakeNode
+    <$> many nodesParser
+    <*> optPath "name" 'n' "name for the new collection"
+
+mkNoteParser :: Parser MdhCommands 
+mkNoteParser =
+  MakeNode
+    <$> many nodesParser
+    <*> optPath "name" 'n' "name for the new note"
 
 cmdsParser :: Parser MdhCommands
 cmdsParser =
   subcommand "tree" "Show note structure" (pure ShowTree)
+    <|> subcommand "open" "Open a note with your configured editor" openNoteParser
     <|> subcommandGroup
       "Quickly open daily notes:"
       [ ("qw", "Quick open daily work notes", pure QuickWork),
@@ -31,7 +46,17 @@ cmdsParser =
       [ ("show", "Find and show notes at a collection or sub-collection", showNotesParser),
         ("s", "\talias for show", showNotesParser)
       ]
-    <|> subcommand "open" "Open a note with your configured editor" (pure (OpenNote [] "temp"))
+    <|> subcommandGroup
+      "Make new notes and collections:"
+      [ ("mc", "Make new (sub)collection at a given node in the collection tree", mkNodeParser),
+        ("mn", "Make new note at a given node in the collection tree", mkNoteParser)
+      ]
+
+optsParser :: Parser Opts
+optsParser =
+  Opts
+    <$> switch "verbose" 'v' "Verbose mode allows logs"
+    <*> optional (optPath "config" 'c' "Provide config file")
 
 argParser :: Parser Command
 argParser =
@@ -39,7 +64,7 @@ argParser =
     <$> cmdsParser
     <*> optsParser
 
--- # Main Func
+-- # Main Funcs
 
 mdh :: (MonadIO io) => Config -> MdhCommands -> Opts -> io ()
 mdh mCfg mCmd mOpts = do
@@ -67,9 +92,14 @@ mdh mCfg mCmd mOpts = do
       case mpt of
         Just (p, _) -> stdout $ mdsAtRelDir mCfg mOpts p
         Nothing -> mdhDie "Couldn't find collection"
-    _ -> mdhDie "not implemented"
+    OpenNote mpath -> do
+      let nodes = init mpath
+      let noteName = last mpath
+      mdhLog mOpts $ "Nodes:" <> foldr ((<>) <$> (' ' :)) "" nodes
+      mdhLog mOpts $ "Note Name: " <> noteName
+      mdhDie "implementation not finished"
+    _ -> mdhDie $ "command not yet implemented: " <> (head . split (==' ') . repr $ mCmd)
 
-  return ()
 
 main :: IO ()
 main = do

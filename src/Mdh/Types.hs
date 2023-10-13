@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -Wno-unused-top-binds #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 
 module Mdh.Types
@@ -8,10 +7,11 @@ module Mdh.Types
         QuickWork,
         QuickPersonal,
         ShowNotes,
+        OpenNote,
         MakeNode,
         nodes,
         newNode,
-        OpenNote,
+        MakeNote,
         newNote
       ),
     Command (Command, cmd, opts),
@@ -22,6 +22,13 @@ module Mdh.Types
 where
 
 import Data.Aeson
+    ( FromJSON(parseJSON),
+      ToJSON(toJSON, toEncoding),
+      pairs,
+      (.:),
+      withObject,
+      object,
+      KeyValue((.=)) )
 import Turtle
 import Prelude hiding (FilePath)
 
@@ -47,8 +54,9 @@ data MdhCommands
   | QuickWork
   | QuickPersonal
   | ShowNotes MPath
+  | OpenNote MPath
   | MakeNode {nodes :: MPath, newNode :: FilePath}
-  | OpenNote {nodes :: MPath, newNote :: FilePath}
+  | MakeNote {nodes :: MPath, newNote :: FilePath}
   deriving (Show)
 
 -- | Packages 'Opts' and 'MdhComands' together
