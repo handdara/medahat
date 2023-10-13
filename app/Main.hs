@@ -9,17 +9,29 @@ import Prelude hiding (FilePath)
 -- # Argument Parsing
 
 optsParser :: Parser Opts
-optsParser = Opts <$> switch "verbose" 'v' "Verbose mode allows logs"
+optsParser = Opts <$>            switch  "verbose" 'v' "Verbose mode allows logs"
+                  <*> optional ( optPath "config"  'c' "Provide config file" )
 
 showNotesParser :: Parser MdhCommands
-showNotesParser = ShowNotes <$> some (argPath "nodes" "nodes in collection tree" )
+showNotesParser = ShowNotes <$> some (argPath "nodes" "nodes in collection tree")
+
+openNoteParser :: Parser MdhCommands
+openNoteParser = undefined
 
 cmdsParser :: Parser MdhCommands
 cmdsParser =
   subcommand "tree" "Show note structure" (pure ShowTree)
-    <|> subcommand "qw" "Quick open daily work notes" (pure QuickWork)
-    <|> subcommand "qp" "Quick open daily work notes" (pure QuickPersonal)
-    <|> subcommand "show" "Show notes at a directory" showNotesParser
+    <|> subcommandGroup
+      "Quickly open daily notes:"
+      [ ("qw", "Quick open daily work notes", pure QuickWork),
+        ("qp", "Quick open daily work notes", pure QuickPersonal)
+      ]
+    <|> subcommandGroup
+      "Show commands:"
+      [ ("show", "Find and show notes at a collection or sub-collection", showNotesParser),
+        ("s", "\talias for show", showNotesParser)
+      ]
+    <|> subcommand "open" "Open a note with your configured editor" (pure (OpenNote [] "temp"))
 
 argParser :: Parser Command
 argParser =
@@ -29,45 +41,45 @@ argParser =
 
 -- # Main Func
 
-mdh :: (MonadIO io) => Config -> io ()
-mdh c = do
-  (Command mCfg mOpts) <- options "Medahat, markdown notes utility for handdara" argParser
-  mdhLog mOpts "Config loaded successfully, running"
-  mdhLog mOpts "Not currently using 'openLine' config option in this version of mdh"
-
-  case mCfg of
+mdh :: (MonadIO io) => Config -> MdhCommands -> Opts -> io ()
+mdh mCfg mCmd mOpts = do
+  case mCmd of
     ShowTree -> do
-      mt <- getTree c
+      mt <- getTree mCfg
       case mt of
-        Just t  -> stdout $ strTreeToShell t
-        Nothing -> mdhError "File tree loaded incorrectly"
+        Just t -> mdhLog mOpts "Collection tree loaded successfully" >> stdout (strTreeToShell t)
+        Nothing -> mdhError "Collection tree loaded incorrectly"
     QuickWork -> do
-      absDir <- absoluteMdhDir c <&> (</> "work")
+      absDir <- absoluteMdhDir mCfg <&> (</> "work")
       mktree absDir
       let absFile = absDir </> "daily" <.> "md"
       touch absFile
-      procs (fromString $ editor c) [fromString absFile] empty
+      procs (fromString $ editor mCfg) [fromString absFile] empty
     QuickPersonal -> do
-      absDir <- absoluteMdhDir c <&> (</> "personal")
+      absDir <- absoluteMdhDir mCfg <&> (</> "personal")
       mktree absDir
       let absFile = absDir </> "daily" <.> "md"
       touch absFile
-      procs (fromString $ editor c) [fromString absFile] empty
+      procs (fromString $ editor mCfg) [fromString absFile] empty
     ShowNotes ns -> do
-      mt <- getTree c
+      mt <- getTree mCfg
       let mpt = mt >>= nodeSearch ns
       case mpt of
-        Just (p, _) -> stdout $ mdsAtRelDir c p
+        Just (p, _) -> stdout $ mdsAtRelDir mCfg mOpts p
         Nothing -> mdhDie "Couldn't find collection"
-
     _ -> mdhDie "not implemented"
 
   return ()
 
 main :: IO ()
-main =  do
+main = do
+  (Command mCmd mOpts) <- options "Medahat, markdown notes utility for handdara" argParser
+  mdhLog mOpts "Not currently using 'openLine' config option in this version of mdh"
+
   -- Attempt to get config
-  cfgAttempt <- liftIO getConfig
+  cfgAttempt <- getConfig mOpts
   case cfgAttempt of
-    Nothing -> liftIO $ putStrLn "Couldn't load config file, check ~/.config/mdh/"
-    Just config -> mdh config
+    Nothing -> mdhDie "Couldn't load config file, check ~/.config/mdh/"
+    Just mCfg -> do
+      mdhLog mOpts "Config loaded successfully, running"
+      mdh mCfg mCmd mOpts

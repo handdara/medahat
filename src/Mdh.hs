@@ -14,12 +14,14 @@ import Turtle
 
 -- # CLI Command Funcs
 
-mdsAtRelDir :: Config -> [Char] -> Shell Line
-mdsAtRelDir c p = do
-  absMdhDir <- absoluteMdhDir c
+-- | Make Shell listing all markdown files at a relative directory
+mdsAtRelDir :: Config -> Opts -> FilePath -> Shell Line
+mdsAtRelDir mCfg mOpts p = do
+  absMdhDir <- absoluteMdhDir mCfg
   let absReqDir = absMdhDir </> dropFirst p
   dir <- ls absReqDir
   status <- stat dir
+  mdhLog mOpts $ "checking " <> fromString dir
   if not (isDirectory status) && (extension dir == Just "md")
     then return $ (unsafeTextToLine . getLast) dir
     else empty
