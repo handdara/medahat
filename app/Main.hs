@@ -94,10 +94,12 @@ mdh mCfg mCmd mOpts = do
         Nothing -> mdhDie "Couldn't find collection"
     OpenNote mpath -> do
       let nodes = init mpath
-      let noteName = last mpath
-      mdhLog mOpts $ "Nodes:" <> foldr ((<>) <$> (' ' :)) "" nodes
-      mdhLog mOpts $ "Note Name: " <> noteName
-      mdhDie "implementation not finished"
+      let mdName = last mpath
+      mt <- getTree mCfg
+      let mpt = mt >>= nodeSearch nodes
+      case mpt of
+        Nothing -> mdhDie "Couldn't find collection"
+        Just (p, _) -> openMd mOpts mCfg p mdName
     _ -> mdhDie $ "command not yet implemented: " <> (head . split (==' ') . repr $ mCmd)
 
 

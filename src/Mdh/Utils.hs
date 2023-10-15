@@ -18,10 +18,11 @@ import qualified Data.Bifunctor as BF
 import Mdh.Types
 import Turtle
 
--- ## Conversions
-
+-- | nodeSearch searches for successive nodes, that is, it finds the first node in a list, 
+-- then searches from that nodes for the next, etc. 
+-- If it doesn't find the node or is called with and empty list it returns `Nothing` (failure)
 nodeSearch :: MPath -> MdhTree FilePath -> Maybe (FilePath, MdhTree FilePath)
-nodeSearch [] _ = mdhError "nodeSearch called with empty list"
+nodeSearch [] _ = Nothing
 nodeSearch [n] t
   | label t == n = Just (n, t)
   | null mps = Nothing
@@ -36,6 +37,8 @@ nodeSearch (n : ns) t =
     return (BF.first ((fst pt </>) . dropFirst) pts)
   where
     dropFirst = foldr1 (</>) . tail . splitDirectories
+
+-- ## Conversions
 
 nodeListToTree :: [a] -> MdhTree a
 nodeListToTree [] = mdhError "can't call nodeListToTree with empty list"
