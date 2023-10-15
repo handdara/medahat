@@ -18,8 +18,8 @@ import qualified Data.Bifunctor as BF
 import Mdh.Types
 import Turtle
 
--- | nodeSearch searches for successive nodes, that is, it finds the first node in a list, 
--- then searches from that nodes for the next, etc. 
+-- | nodeSearch searches for successive nodes, that is, it finds the first node in a list,
+-- then searches from that nodes for the next, etc.
 -- If it doesn't find the node or is called with and empty list it returns `Nothing` (failure)
 nodeSearch :: MPath -> MdhTree FilePath -> Maybe (FilePath, MdhTree FilePath)
 nodeSearch [] _ = Nothing
@@ -73,7 +73,7 @@ mdhLog :: (MonadIO io, Show a) => Opts -> a -> io ()
 mdhLog opts = when (verbose opts) . stdout . ("LOG: " <>) . repr
 
 mdhWarn :: (MonadIO io, Show a) => Opts -> a -> io ()
-mdhWarn _ = stderr . ("WARNING: "<>) . repr
+mdhWarn _ = stderr . ("WARNING: " <>) . repr
 
 mdhDie :: (MonadIO io, Show a) => a -> io ()
 mdhDie = die . ("KILLED: " <>) . repr
@@ -88,8 +88,8 @@ formatRelPath :: (MonadIO io) => FilePath -> io FilePath
 formatRelPath d =
   case head d of
     '~' -> home <&> (</> dropFirst d)
-    '.' -> pwd  <&> (</> dropFirst d)
-    _   -> pwd  <&> (</>           d)
+    '.' -> pwd <&> (</> dropFirst d)
+    _ -> pwd <&> (</> d)
   where
     dropFirst = foldl (</>) mempty . tail . splitDirectories
 

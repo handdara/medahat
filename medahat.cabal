@@ -36,7 +36,7 @@ common shared-props
 
 library medahat-internal
     import: shared-props
-    exposed-modules: Mdh.Config, Mdh.Utils, Mdh.Types
+    exposed-modules: Mdh.Config, Mdh.Utils, Mdh.Types, Mdh.File
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
