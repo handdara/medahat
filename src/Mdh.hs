@@ -11,13 +11,12 @@ where
 import Mdh.Config
 import Mdh.Types
 import Mdh.Utils
-
 import Turtle
 
 -- # CLI Command Funcs
 
 -- makeRelMdhDirAbsolute :: Config -> FilePath -> io FilePath
-makeRelMdhDirAbsolute :: MonadIO io => Config -> FilePath -> io FilePath
+makeRelMdhDirAbsolute :: (MonadIO io) => Config -> FilePath -> io FilePath
 makeRelMdhDirAbsolute mCfg rp = do
   mDir <- absoluteMdhDir mCfg
   return $ mDir </> dropFirst rp
@@ -37,13 +36,18 @@ mdsAtRelDir mCfg mOpts p = do
   where
     getLast = fromString . last . splitDirectories
 
-editFile :: MonadIO io => Config -> FilePath -> io ()
-editFile mCfg file = do 
+-- | The function that actually opens the editor
+editFile :: (MonadIO io) => Config -> FilePath -> io ()
+editFile mCfg file = do
   previous <- pwd
   mdhPath <- absoluteMdhDir mCfg
   cd mdhPath
   procs (fromString $ editor mCfg) [fromString file] empty
   cd previous
+
+-- | TODO: Variation of `editFile` that will open to a specific line
+editFileLine :: (MonadIO io, Integral n) => Config -> FilePath -> n -> io ()
+editFileLine = undefined
 
 openMd :: (MonadIO io) => Opts -> Config -> FilePath -> FilePath -> io ()
 openMd mOpts mCfg path name' = do
