@@ -66,6 +66,7 @@ argParser =
 
 -- # Main Funcs
 
+-- | This is handle most of the execution logic, basically the entire program minus parsing configs/options
 mdh :: (MonadIO io) => Config -> MdhCommands -> Opts -> io ()
 mdh mCfg mCmd mOpts = do
   case mCmd of
@@ -79,13 +80,13 @@ mdh mCfg mCmd mOpts = do
       mktree absDir
       let absFile = absDir </> "daily" <.> "md"
       touch absFile
-      procs (fromString $ editor mCfg) [fromString absFile] empty
+      editFile mCfg absFile
     QuickPersonal -> do
       absDir <- absoluteMdhDir mCfg <&> (</> "personal")
       mktree absDir
       let absFile = absDir </> "daily" <.> "md"
       touch absFile
-      procs (fromString $ editor mCfg) [fromString absFile] empty
+      editFile mCfg absFile
     ShowNotes ns -> do
       mt <- getTree mCfg
       let mpt = mt >>= nodeSearch ns
@@ -102,7 +103,7 @@ mdh mCfg mCmd mOpts = do
         Just (p, _) -> openMd mOpts mCfg p mdName
     _ -> mdhDie $ "command not yet implemented: " <> (head . split (==' ') . repr $ mCmd)
 
-
+-- | Main entrypoint
 main :: IO ()
 main = do
   (Command maybeMedCmd mOpts) <- options "Medahat, markdown notes utility for handdara" argParser

@@ -4,6 +4,7 @@ module Mdh
     module Mdh.Types,
     mdsAtRelDir,
     openMd,
+    editFile,
   )
 where
 
@@ -36,6 +37,14 @@ mdsAtRelDir mCfg mOpts p = do
   where
     getLast = fromString . last . splitDirectories
 
+editFile :: MonadIO io => Config -> FilePath -> io ()
+editFile mCfg file = do 
+  previous <- pwd
+  mdhPath <- absoluteMdhDir mCfg
+  cd mdhPath
+  procs (fromString $ editor mCfg) [fromString file] empty
+  cd previous
+
 openMd :: (MonadIO io) => Opts -> Config -> FilePath -> FilePath -> io ()
 openMd mOpts mCfg path name' = do
   let name = if hasExtension name' then name' else name' <.> "md"
@@ -45,4 +54,4 @@ openMd mOpts mCfg path name' = do
     -- currently we are just making the file and opening, but this could also cause mdh to die
     mdhWarn mOpts $ "Did not find note at requested collection, created before opening. File can be found at: " <> fullPath
     touch fullPath
-  procs (fromString $ editor mCfg) [fromString fullPath] empty
+  editFile mCfg fullPath
