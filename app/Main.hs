@@ -2,10 +2,10 @@
 
 module Main where
 
+import Data.Text (split)
 import Mdh
 import Turtle
 import Prelude hiding (FilePath)
-import Data.Text (split)
 
 -- # Argument Parsing
 
@@ -20,13 +20,13 @@ openNoteParser =
   OpenNote
     <$> some (argPath "[nodes] note" "NOTE: note to open, if no extension is given a default `.md` is applied. NODES: successive sub-collections to search down collection tree")
 
-mkNodeParser :: Parser MdhCommands 
+mkNodeParser :: Parser MdhCommands
 mkNodeParser =
   MakeNode
     <$> many nodesParser
     <*> optPath "name" 'n' "name for the new collection"
 
-mkNoteParser :: Parser MdhCommands 
+mkNoteParser :: Parser MdhCommands
 mkNoteParser =
   MakeNode
     <$> many nodesParser
@@ -34,17 +34,18 @@ mkNoteParser =
 
 cmdsParser :: Parser MdhCommands
 cmdsParser =
-  subcommand "tree" "Default Command. Show note structure" (pure ShowTree)
-    <|> subcommand "open" "Open a note with your configured editor" openNoteParser
-    <|> subcommandGroup
-      "Quickly open daily notes:"
-      [ ("qw", "Quick open daily work notes", pure QuickWork),
-        ("qp", "Quick open daily work notes", pure QuickPersonal)
-      ]
+  subcommandGroup
+    "Opening notes:"
+    [ ("qw", "Quick open daily work notes", pure QuickWork),
+      ("qp", "Quick open daily work notes", pure QuickPersonal),
+      ("open", "Open a note with your configured editor", openNoteParser),
+      ("o", "Alias for `open`", openNoteParser)
+    ]
     <|> subcommandGroup
       "Show commands:"
-      [ ("show", "Find and show notes at a collection or sub-collection", showNotesParser),
-        ("s", "\talias for show", showNotesParser)
+      [ ("tree", "*Default Command*: Show collection tree,\n  (collections are basically synonymous with directories)", pure ShowTree),
+        ("show", "Find and show notes at a collection or sub-collection", showNotesParser),
+        ("s", "Alias for `show`", showNotesParser)
       ]
     <|> subcommandGroup
       "Make new notes and collections:"
@@ -101,7 +102,7 @@ mdh mCfg mCmd mOpts = do
       case mpt of
         Nothing -> mdhDie "Couldn't find collection"
         Just (p, _) -> openMd mOpts mCfg p mdName
-    _ -> mdhDie $ "command not yet implemented: " <> (head . split (==' ') . repr $ mCmd)
+    _ -> mdhDie $ "command not yet implemented: " <> (head . split (== ' ') . repr $ mCmd)
 
 -- | Main entrypoint
 main :: IO ()
