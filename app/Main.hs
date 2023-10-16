@@ -34,7 +34,7 @@ mkNoteParser =
 
 cmdsParser :: Parser MdhCommands
 cmdsParser =
-  subcommand "tree" "Show note structure" (pure ShowTree)
+  subcommand "tree" "Default Command. Show note structure" (pure ShowTree)
     <|> subcommand "open" "Open a note with your configured editor" openNoteParser
     <|> subcommandGroup
       "Quickly open daily notes:"
@@ -61,7 +61,7 @@ optsParser =
 argParser :: Parser Command
 argParser =
   Command
-    <$> cmdsParser
+    <$> optional cmdsParser
     <*> optsParser
 
 -- # Main Funcs
@@ -105,13 +105,16 @@ mdh mCfg mCmd mOpts = do
 
 main :: IO ()
 main = do
-  (Command mCmd mOpts) <- options "Medahat, markdown notes utility for handdara" argParser
+  (Command maybeMedCmd mOpts) <- options "Medahat, markdown notes utility for handdara" argParser
   mdhLog mOpts "Not currently using 'openLine' config option in this version of mdh"
 
   -- Attempt to get config
   cfgAttempt <- getConfig mOpts
-  case cfgAttempt of
-    Nothing -> mdhDie "Couldn't load config file, check ~/.config/mdh/"
-    Just mCfg -> do
+  case (cfgAttempt, maybeMedCmd) of
+    (Nothing, _) -> mdhDie "Couldn't load config file, check ~/.config/mdh/"
+    (Just mCfg, Nothing) -> do
       mdhLog mOpts "Config loaded successfully, running"
-      mdh mCfg mCmd mOpts
+      mdh mCfg ShowTree mOpts
+    (Just mCfg, Just medCmd) -> do
+      mdhLog mOpts "Config loaded successfully, running"
+      mdh mCfg medCmd mOpts

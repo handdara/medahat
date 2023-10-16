@@ -61,7 +61,7 @@ data MdhCommands
 
 -- | Packages 'Opts' and 'MdhComands' together
 data Command = Command
-  { cmd :: MdhCommands,
+  { cmd :: Maybe MdhCommands,
     opts :: Opts
   }
 
