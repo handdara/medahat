@@ -24,7 +24,7 @@ maintainer:         handdara.core@gmail.com
 common shared-props
     default-language: Haskell2010
     build-depends:  
-        base, 
+        base ^>=4.16.4.0, 
         aeson,
         text,
         time,
@@ -45,7 +45,7 @@ library medahat-internal
 library
     import: shared-props
     -- Modules included in this library but not exported.
-    other-modules: Mdh.Config, Mdh.Utils, Mdh.Types
+    other-modules: Mdh.Config, Mdh.Utils, Mdh.Types, Mdh.File
     exposed-modules: Mdh
     build-depends: medahat:medahat-internal
     hs-source-dirs: src

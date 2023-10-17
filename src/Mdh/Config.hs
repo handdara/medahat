@@ -27,8 +27,8 @@ mkNewConfig cfp = do
   LIO.writeFile cfp $ encodeToLazyText dc
   return (Just dc)
 
--- Need to read the config file, make it into text/bytestring,
--- and then pass it to aeson for decoding
+-- | Reads the config file, makes it into a text/bytestring,
+-- and then passes it to aeson for decoding
 loadConfig :: FilePath -> IO (Maybe Config)
 loadConfig cfp = do
   raw <- B.readFile cfp
