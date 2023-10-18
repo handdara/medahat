@@ -50,7 +50,7 @@ data Opts = Opts
 -- | Data type that represents possible `mdh` commands
 -- and required arguments for those commands
 data MdhCommands
-  = ShowTree
+  = ShowTree {nodes :: MPath}
   | QuickWork
   | QuickPersonal
   | ShowNotes MPath

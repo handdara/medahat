@@ -12,6 +12,9 @@ import Prelude hiding (FilePath)
 nodesParser :: Parser FilePath
 nodesParser = argPath "nodes" "successive sub-collections to search down collection tree"
 
+showTreeParser :: Parser MdhCommands
+showTreeParser = ShowTree <$> many nodesParser
+
 showNotesParser :: Parser MdhCommands
 showNotesParser = ShowNotes <$> some nodesParser
 
@@ -43,7 +46,7 @@ cmdsParser =
     ]
     <|> subcommandGroup
       "Show commands:"
-      [ ("tree", "*Default Command*: Show collection tree,\n  (collections are basically synonymous with directories)", pure ShowTree),
+      [ ("tree", "*Default Command*: Show collection tree,\n  (collections are basically synonymous with directories)", showTreeParser),
         ("show", "Find and show notes at a collection or sub-collection", showNotesParser),
         ("s", "Alias for `show`", showNotesParser)
       ]
@@ -71,11 +74,13 @@ argParser =
 mdh :: (MonadIO io) => Config -> MdhCommands -> Opts -> io ()
 mdh mCfg mCmd mOpts = do
   case mCmd of
-    ShowTree -> do
+    ShowTree ns -> do
       mt <- getTree mCfg
       case mt of
-        Just t -> mdhLog mOpts "Collection tree loaded successfully" >> stdout (strTreeToShell t)
         Nothing -> mdhError "Collection tree loaded incorrectly"
+        Just t -> do
+          mdhLog mOpts "Collection tree loaded successfully" 
+          stdout (strTreeToShell t)
     QuickWork -> do
       absDir <- absoluteMdhDir mCfg <&> (</> "work")
       mktree absDir
@@ -116,7 +121,7 @@ main = do
     (Nothing, _) -> mdhDie "Couldn't load config file, check ~/.config/mdh/"
     (Just mCfg, Nothing) -> do
       mdhLog mOpts "Config loaded successfully, running"
-      mdh mCfg ShowTree mOpts
+      mdh mCfg (ShowTree []) mOpts
     (Just mCfg, Just medCmd) -> do
       mdhLog mOpts "Config loaded successfully, running"
       mdh mCfg medCmd mOpts
