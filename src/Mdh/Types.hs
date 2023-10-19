@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -Wno-name-shadowing #-}
 
 module Mdh.Types
   ( Opts (Opts, verbose, cfgDir),
@@ -17,7 +16,7 @@ module Mdh.Types
     Command (Command, cmd, opts),
     MPath,
     MdhTree (MNode, label, children),
-    Config (Config, mdhDir, editor, openLine),
+    Config (Config, mdhDir, editor, openToLine),
   )
 where
 
@@ -36,7 +35,7 @@ import Prelude hiding (FilePath)
 data Config = Config
   { mdhDir :: FilePath,
     editor :: String,
-    openLine :: Bool
+    openToLine :: Bool
   }
   deriving (Show)
 
@@ -56,7 +55,7 @@ data MdhCommands
   | ShowNotes MPath
   | OpenNote MPath
   | MakeNode {nodes :: MPath, newNode :: FilePath}
-  | MakeNote {nodes :: MPath, newNote :: FilePath}
+  | MakeNote {nodes :: MPath, newNote :: FilePath, edit :: Bool}
   deriving (Show)
 
 -- | Packages 'Opts' and 'MdhComands' together
@@ -74,10 +73,10 @@ data MdhTree a = MNode {label :: a, children :: [MdhTree a]}
 -- ## MdhTree
 -- ### Show
 showWithTabNumber :: (Show s) => Int -> MdhTree s -> String
-showWithTabNumber n (MNode l []) = replicate (2 * n) ' ' ++ show l ++ "\n"
-showWithTabNumber n (MNode l cs) =
+showWithTabNumber n (MNode lab []) = replicate (2 * n) ' ' ++ show lab ++ "\n"
+showWithTabNumber n (MNode lab cs) =
   replicate (2 * n) ' '
-    ++ show l
+    ++ show lab
     ++ "\n"
     ++ foldr1 (++) childStrings
   where
@@ -88,7 +87,7 @@ instance (Show a) => Show (MdhTree a) where
 
 -- ### Eq
 instance (Eq a) => Eq (MdhTree a) where
-  l == r = (label l == label r) && (children l == children r)
+  lab == r = (label lab == label r) && (children lab == children r)
 
 -- ### Semigroup
 insert :: (Eq a, Monoid a) => MdhTree a -> MdhTree a -> MdhTree a
@@ -112,25 +111,25 @@ insert (MNode ll (lc : lcs)) r =
     lmult = MNode ll lcs
 
 instance (Eq a, Monoid a) => Semigroup (MdhTree a) where
-  l <> r
-    | l `inMTree` r = insert l {-into-} r
-    | label r == mempty = MNode mempty (l : children r)
-    | label l == mempty = MNode mempty (r : children l)
-    | otherwise = MNode mempty [l, r]
+  lab <> r
+    | lab `inMTree` r = insert lab {-into-} r
+    | label r == mempty = MNode mempty (lab : children r)
+    | label lab == mempty = MNode mempty (r : children lab)
+    | otherwise = MNode mempty [lab, r]
 
 inMTree :: (Eq a) => MdhTree a -> MdhTree a -> Bool
-inMTree l r
-  | label l == label r = True
-  | otherwise = foldr (\c acc -> label l == label c || acc) False (children r)
+inMTree lab r
+  | label lab == label r = True
+  | otherwise = foldr (\c acc -> label lab == label c || acc) False (children r)
 
 -- ## Config
 -- ### Aeson typeclasses
 instance ToJSON Config where
-  toJSON (Config d e b) =
-    object ["mdhDir" .= d, "editor" .= e, "openLine" .= b]
+  toJSON (Config mDir mEditor b) =
+    object ["mdhDir" .= mDir, "editor" .= mEditor, "openLine" .= b]
 
-  toEncoding (Config d e b) =
-    pairs ("mdhDir" .= d <> "editor" .= e <> "openLine" .= b)
+  toEncoding (Config mDir mEditor b) =
+    pairs ("mdhDir" .= mDir <> "editor" .= mEditor <> "openLine" .= b)
 
 instance FromJSON Config where
   parseJSON = withObject "Config" $ \v ->

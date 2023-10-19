@@ -51,7 +51,7 @@ getConfig' mOpts cfgFilePath = do
 
 -- | Does the cfg directory exist? if not this func makes it
 -- Does the cfg file exist? if not this func makes it
--- Returns a configuration i
+-- Returns a Just configuration if config file is parsed correctly
 getConfig :: (MonadIO io) => Opts -> io (Maybe Config)
 getConfig mOpts = liftIO $
   case cfgDir mOpts of

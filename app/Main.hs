@@ -2,7 +2,6 @@
 
 module Main where
 
-import Data.Text (split)
 import Mdh
 import Turtle
 import Prelude hiding (FilePath)
@@ -31,9 +30,10 @@ mkNodeParser =
 
 mkNoteParser :: Parser MdhCommands
 mkNoteParser =
-  MakeNode
+  MakeNote
     <$> many nodesParser
     <*> optPath "name" 'n' "name for the new note"
+    <*> switch "touch-only" 't' "By default medahat will open the file in the configured editor, this flag turns that off"
 
 cmdsParser :: Parser MdhCommands
 cmdsParser =
@@ -78,7 +78,7 @@ mdh mCfg mCmd mOpts = do
       mt <- getTree mCfg
       case mt of
         Nothing -> mdhError "Collection tree loaded incorrectly"
-        Just t -> do
+        Just t ->  do
           mdhLog mOpts "Collection tree loaded successfully"
           stdout (strTreeToShell t)
     ShowTree ns -> do
@@ -109,13 +109,14 @@ mdh mCfg mCmd mOpts = do
         Nothing -> mdhDie "Couldn't find collection"
     OpenNote ns -> 
       openNoteCmd mCfg mOpts ns
-    _ -> mdhDie $ "command not yet implemented: " <> (head . split (== ' ') . repr $ mCmd)
+    MakeNode ns new -> mkNode mCfg mOpts ns new
+    MakeNote ns new tFlag -> mkNote mCfg mOpts ns new tFlag
+    -- _ -> mdhDie $ "command not yet implemented: " <> (head . split (== ' ') . repr $ mCmd)
 
 -- | Main entrypoint
 main :: IO ()
 main = do
   (Command maybeMedCmd mOpts) <- options "Medahat, markdown notes utility for handdara" argParser
-  mdhLog mOpts "Not currently using 'openLine' config option in this version of mdh"
 
   -- Attempt to get config
   cfgAttempt <- getConfig mOpts

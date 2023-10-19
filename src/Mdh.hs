@@ -3,9 +3,10 @@ module Mdh
     module Mdh.Utils,
     module Mdh.Types,
     textFilesAtRelDir,
-    openMd,
     editFile,
     openNoteCmd,
+    mkNode,
+    mkNote,
   )
 where
 
@@ -19,8 +20,8 @@ import Turtle
 -- # CLI Command Funcs
 
 -- makeRelMdhDirAbsolute :: Config -> FilePath -> io FilePath
-makeRelMdhDirAbsolute :: (MonadIO io) => Config -> FilePath -> io FilePath
-makeRelMdhDirAbsolute mCfg rp = do
+mkRelMdhDirAbsolute :: (MonadIO io) => Config -> FilePath -> io FilePath
+mkRelMdhDirAbsolute mCfg rp = do
   mDir <- absoluteMdhDir mCfg
   return $ mDir </> dropFirst rp
   where
@@ -29,7 +30,7 @@ makeRelMdhDirAbsolute mCfg rp = do
 -- | Make Shell listing all markdown (plaintext) files at a relative directory
 textFilesAtRelDir :: Config -> Opts -> FilePath -> Shell Line
 textFilesAtRelDir mCfg mOpts p = do
-  absReqDir <- makeRelMdhDirAbsolute mCfg p
+  absReqDir <- mkRelMdhDirAbsolute mCfg p
   dir <- ls absReqDir
   status <- stat dir
   mdhLog mOpts $ "checking " <> fromString dir
@@ -40,7 +41,7 @@ textFilesAtRelDir mCfg mOpts p = do
 -- | Make Shell listing all markdown (plaintext) files at a relative directory AND subdirectories
 textFilesAtRelDir'tree :: Config -> Opts -> FilePath -> Shell Line
 textFilesAtRelDir'tree mCfg mOpts p = do
-  absReqDir <- makeRelMdhDirAbsolute mCfg p
+  absReqDir <- mkRelMdhDirAbsolute mCfg p
   dir <- lstree absReqDir
   status <- stat dir
   mdhLog mOpts $ "checking " <> fromString dir
@@ -58,11 +59,11 @@ editFile mCfg file = do
   cd previous
 
 -- | TODO: Variation of `editFile` that will open to a specific line
-editFileLine :: (MonadIO io, Integral n) => Config -> FilePath -> n -> io ()
-editFileLine = undefined
+editFile'atLine :: (MonadIO io, Integral n) => Config -> FilePath -> n -> io ()
+editFile'atLine = undefined
 
-openMdFilter :: FilePath -> Shell Line -> Shell FilePath
-openMdFilter reqName' ps = do
+filterMatchingRequested :: FilePath -> Shell Line -> Shell FilePath
+filterMatchingRequested reqName' ps = do
   p <- unpack . lineToText <$> ps
   let (name'requested, mExt'requested) = splitExtension reqName'
   let (name'testing, mExt'testing) = splitExtension p
@@ -73,15 +74,15 @@ openMdFilter reqName' ps = do
       Nothing -> return p
       mre -> if mre == mExt'testing then return p else empty
 
--- | Open the first acceptable markdown file found
+-- | Open the first acceptable text/markdown file found
 -- In this context, acceptable means that the extension requested/found is valid a text file type,
 -- the files have the same name, and if an extension is given, the same extension
-openMd :: (MonadIO io) => Config -> Opts -> FilePath -> FilePath -> io ()
-openMd mCfg mOpts path name = do
+findAndOpenTextFile :: (MonadIO io) => Config -> Opts -> FilePath -> FilePath -> io ()
+findAndOpenTextFile mCfg mOpts path name = do
   unless
     (validTextExtensionOrNone name)
     (mdhDie $ "Not an allowed file extension: " <> repr (extension name))
-  let possibleFiles = openMdFilter name $ textFilesAtRelDir'tree mCfg mOpts path
+  let possibleFiles = filterMatchingRequested name $ textFilesAtRelDir'tree mCfg mOpts path
   (numFilesFound, mp) <- fold possibleFiles ((,) <$> F.length <*> F.head) -- :: Shell (Int, Maybe FilePath)
   case mp of
     Nothing -> mdhDie "No files found"
@@ -95,7 +96,7 @@ openMd mCfg mOpts path name = do
         pf <- fs
         mdhWarn mOpts $ "  Found: " <> fromString pf
 
-openNoteCmd :: MonadIO m => Config -> Opts -> MPath -> m ()
+openNoteCmd :: MonadIO io => Config -> Opts -> MPath -> io ()
 openNoteCmd mCfg mOpts nodes'name = do
   let ns = init nodes'name
   let name = last nodes'name
@@ -107,4 +108,45 @@ openNoteCmd mCfg mOpts nodes'name = do
         p <- select ns
         mdhWarn mOpts $ "  [NODES]: " <> fromString p
       mdhDie "Couldn't find collection"
-    Just (p'rel, _) -> openMd mCfg mOpts p'rel name
+    Just (p'rel, _) -> findAndOpenTextFile mCfg mOpts p'rel name
+
+-- | Make a directory at a requested node (basically a glorified `mkdir`) note that this calls
+-- `Turtle.mktree` internally, so a path of nodes can be given, not just 1, e.g. "multiple/nodes/given"
+mkNode :: MonadIO io => Config -> Opts -> MPath -> FilePath -> io ()
+mkNode mConf mOpts ns new = do
+  mt <- getTree mConf
+  let mpt = mt >>= nodeSearch ns
+  case mpt of
+    Nothing -> mdhDie "Couldn't find collection"
+    Just (path'rel, _) -> do
+      path'abs <- mkRelMdhDirAbsolute mConf path'rel
+      let pathToMk = path'abs </> new
+      mdhLog mOpts "Collection found, making directory:"
+      mdhLog mOpts $ fromString ("  " <> pathToMk)
+      mktree pathToMk
+
+-- | Make a text file at a requested node. 
+-- - Searches down subcollections
+-- - Verifies valid extension type
+-- - touches the file
+-- - by default then edits, but this can be turned off
+mkNote :: MonadIO io => Config -> Opts -> MPath -> FilePath -> Bool -> io ()
+mkNote mConf mOpts ns newTxtFile touchFlag = do
+  mt <- getTree mConf
+  let mpt = mt >>= nodeSearch ns
+  unless
+    (validTextExtensionOrNone newTxtFile)
+    (mdhDie $ "Not an allowed file extension: " <> repr (extension newTxtFile))
+  case mpt of
+    Nothing -> mdhDie "Couldn't find collection"
+    Just (path'rel, _) -> do
+      path'abs <- mkRelMdhDirAbsolute mConf path'rel
+      mdhLog mOpts "Collection found at:"
+      mdhLog mOpts $ fromString ("  " <> path'abs)
+      let {
+        toWrite = path'abs </> if hasExtension newTxtFile
+          then newTxtFile
+          else newTxtFile <.> "md"
+      }
+      touch toWrite
+      unless touchFlag $ editFile mConf toWrite
