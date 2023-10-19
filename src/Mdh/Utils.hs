@@ -13,6 +13,7 @@ module Mdh.Utils
     textExtensions,
     validTextExtension,
     validTextExtensionOrNone,
+    dayMonth,
   )
 where
 
@@ -20,7 +21,7 @@ import qualified Control.Foldl as F
 import qualified Data.Bifunctor as BF
 import Mdh.Types
 import Turtle
-import Data.Text (unpack)
+import Data.Text (unpack, split)
 
 -- | nodeSearch searches for successive nodes, that is, it finds the first node in a list,
 -- then searches from that nodes for the next, etc.
@@ -147,3 +148,32 @@ clipDirTree c t
 
 getTree :: (MonadIO io) => Config -> io (Maybe (MdhTree FilePath))
 getTree c = clipDirTree c <$> getFullDirTree c
+
+-- # Time and Dates
+
+utcTimeToDayAndMonth :: UTCTime -> Maybe (Text, Text)
+utcTimeToDayAndMonth t = 
+  if length ts /= 3
+    then Nothing
+    else do
+      let m = ts !! 1
+          d = ts !! 2 
+      mNum <- toMonthText $ unpack m
+      return (d, mNum)
+  where 
+    ymd'other = head . split (==' ') . (fromString . show) :: UTCTime -> Text
+    year'month'day = split (=='-') . ymd'other 
+    ts = year'month'day t
+    months = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"]
+    toMonthText mt = do
+      let mi = read mt - 1:: Int
+      if 0 <= mi && mi <= 11 
+        then Just (months !! mi)
+        else Nothing
+
+-- | Attempt to get the current day and month of system as text
+-- example success might return `Just ("19","jan")`
+dayMonth :: (MonadIO io) => io (Maybe (Text, Text))
+dayMonth = utcTimeToDayAndMonth <$> date
+    
+
