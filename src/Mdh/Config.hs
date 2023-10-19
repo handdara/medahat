@@ -1,4 +1,4 @@
-module Mdh.Config (getConfig) where
+module Mdh.Config (getConfig, defaultConfig) where
 
 import Data.Aeson (decode)
 import Data.Aeson.Text (encodeToLazyText)
@@ -9,7 +9,7 @@ import Mdh.Utils (formatRelPath, mdhWarn)
 import Turtle
 
 defaultConfig :: Config
-defaultConfig = Config ("~" </> "Documents") "hx" True
+defaultConfig = Config ("~" </> "Documents" </> "medahat") "hx" False
 
 relConfigDir :: FilePath
 relConfigDir = ".config" </> "medahat"
@@ -69,3 +69,4 @@ getConfig mOpts = liftIO $
 
 -- We could also add more complicated search functionality, ie loading any
 -- json file in the cfg dir, maybe a todo
+-- TODO: also would be nice to allow setting config fields or dumping new config via command line

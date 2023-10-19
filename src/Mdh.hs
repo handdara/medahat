@@ -2,12 +2,15 @@ module Mdh
   ( module Mdh.Config,
     module Mdh.Utils,
     module Mdh.Types,
-    mdsAtRelDir,
+    textFilesAtRelDir,
     openMd,
     editFile,
+    openNoteCmd,
   )
 where
 
+import qualified Control.Foldl as F
+import Data.Text (unpack)
 import Mdh.Config
 import Mdh.Types
 import Mdh.Utils
@@ -23,18 +26,27 @@ makeRelMdhDirAbsolute mCfg rp = do
   where
     dropFirst = foldr (</>) [] . tail . splitDirectories
 
--- | Make Shell listing all markdown files at a relative directory
-mdsAtRelDir :: Config -> Opts -> FilePath -> Shell Line
-mdsAtRelDir mCfg mOpts p = do
+-- | Make Shell listing all markdown (plaintext) files at a relative directory
+textFilesAtRelDir :: Config -> Opts -> FilePath -> Shell Line
+textFilesAtRelDir mCfg mOpts p = do
   absReqDir <- makeRelMdhDirAbsolute mCfg p
   dir <- ls absReqDir
   status <- stat dir
   mdhLog mOpts $ "checking " <> fromString dir
-  if not (isDirectory status) && (extension dir == Just "md")
-    then return $ (unsafeTextToLine . getLast) dir
+  if not (isDirectory status) && validTextExtension dir
+    then (return . unsafeTextToLine . fromString) dir
     else empty
-  where
-    getLast = fromString . last . splitDirectories
+
+-- | Make Shell listing all markdown (plaintext) files at a relative directory AND subdirectories
+textFilesAtRelDir'tree :: Config -> Opts -> FilePath -> Shell Line
+textFilesAtRelDir'tree mCfg mOpts p = do
+  absReqDir <- makeRelMdhDirAbsolute mCfg p
+  dir <- lstree absReqDir
+  status <- stat dir
+  mdhLog mOpts $ "checking " <> fromString dir
+  if not (isDirectory status) && validTextExtension dir
+    then (return . unsafeTextToLine . fromString) dir
+    else empty
 
 -- | The function that actually opens the editor
 editFile :: (MonadIO io) => Config -> FilePath -> io ()
@@ -49,13 +61,50 @@ editFile mCfg file = do
 editFileLine :: (MonadIO io, Integral n) => Config -> FilePath -> n -> io ()
 editFileLine = undefined
 
-openMd :: (MonadIO io) => Opts -> Config -> FilePath -> FilePath -> io ()
-openMd mOpts mCfg path name' = do
-  let name = if hasExtension name' then name' else name' <.> "md"
-  fullPath <- makeRelMdhDirAbsolute mCfg path <&> (</> name)
-  mdExists <- testfile fullPath
-  unless mdExists $ do
-    -- currently we are just making the file and opening, but this could also cause mdh to die
-    mdhWarn mOpts $ "Did not find note at requested collection, created before opening. File can be found at: " <> fullPath
-    touch fullPath
-  editFile mCfg fullPath
+openMdFilter :: FilePath -> Shell Line -> Shell FilePath
+openMdFilter reqName' ps = do
+  p <- unpack . lineToText <$> ps
+  let (name'requested, mExt'requested) = splitExtension reqName'
+  let (name'testing, mExt'testing) = splitExtension p
+  if filename name'testing /= name'requested
+    then empty
+    else case mExt'requested of
+      -- no extension given by user
+      Nothing -> return p
+      mre -> if mre == mExt'testing then return p else empty
+
+-- | Open the first acceptable markdown file found
+-- In this context, acceptable means that the extension requested/found is valid a text file type,
+-- the files have the same name, and if an extension is given, the same extension
+openMd :: (MonadIO io) => Config -> Opts -> FilePath -> FilePath -> io ()
+openMd mCfg mOpts path name = do
+  unless
+    (validTextExtensionOrNone name)
+    (mdhDie $ "Not an allowed file extension: " <> repr (extension name))
+  let possibleFiles = openMdFilter name $ textFilesAtRelDir'tree mCfg mOpts path
+  (numFilesFound, mp) <- fold possibleFiles ((,) <$> F.length <*> F.head) -- :: Shell (Int, Maybe FilePath)
+  case mp of
+    Nothing -> mdhDie "No files found"
+    Just p -> do
+      when (numFilesFound > 1) $ dumpFiles mOpts possibleFiles
+      editFile mCfg p
+  where
+    dumpFiles mo fs = do
+      mdhWarn mo "More than one acceptable file found, opening first"
+      sh $ do
+        pf <- fs
+        mdhWarn mOpts $ "  Found: " <> fromString pf
+
+openNoteCmd :: MonadIO m => Config -> Opts -> MPath -> m ()
+openNoteCmd mCfg mOpts nodes'name = do
+  let ns = init nodes'name
+  let name = last nodes'name
+  mt <- getTree mCfg
+  let mpt = mt >>= nodeSearch ns
+  case mpt of
+    Nothing -> do
+      sh $ do
+        p <- select ns
+        mdhWarn mOpts $ "  [NODES]: " <> fromString p
+      mdhDie "Couldn't find collection"
+    Just (p'rel, _) -> openMd mCfg mOpts p'rel name

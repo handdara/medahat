@@ -74,13 +74,21 @@ argParser =
 mdh :: (MonadIO io) => Config -> MdhCommands -> Opts -> io ()
 mdh mCfg mCmd mOpts = do
   case mCmd of
-    ShowTree ns -> do
+    ShowTree [] -> do
       mt <- getTree mCfg
       case mt of
         Nothing -> mdhError "Collection tree loaded incorrectly"
         Just t -> do
-          mdhLog mOpts "Collection tree loaded successfully" 
+          mdhLog mOpts "Collection tree loaded successfully"
           stdout (strTreeToShell t)
+    ShowTree ns -> do
+      mt <- getTree mCfg
+      let mpt = mt >>= nodeSearch ns
+      case mpt of
+        Nothing -> mdhError "Collection tree loaded incorrectly"
+        Just (_, subTree) -> do
+          mdhLog mOpts "Collection tree loaded successfully"
+          stdout (strTreeToShell subTree)
     QuickWork -> do
       absDir <- absoluteMdhDir mCfg <&> (</> "work")
       mktree absDir
@@ -97,16 +105,10 @@ mdh mCfg mCmd mOpts = do
       mt <- getTree mCfg
       let mpt = mt >>= nodeSearch ns
       case mpt of
-        Just (p, _) -> stdout $ mdsAtRelDir mCfg mOpts p
+        Just (p, _) -> stdout $ textFilesAtRelDir mCfg mOpts p
         Nothing -> mdhDie "Couldn't find collection"
-    OpenNote mpath -> do
-      let nodes = init mpath
-      let mdName = last mpath
-      mt <- getTree mCfg
-      let mpt = mt >>= nodeSearch nodes
-      case mpt of
-        Nothing -> mdhDie "Couldn't find collection"
-        Just (p, _) -> openMd mOpts mCfg p mdName
+    OpenNote ns -> 
+      openNoteCmd mCfg mOpts ns
     _ -> mdhDie $ "command not yet implemented: " <> (head . split (== ' ') . repr $ mCmd)
 
 -- | Main entrypoint

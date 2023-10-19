@@ -10,6 +10,9 @@ module Mdh.Utils
     mdhDie,
     nodeSearch,
     formatRelPath,
+    textExtensions,
+    validTextExtension,
+    validTextExtensionOrNone,
   )
 where
 
@@ -17,12 +20,13 @@ import qualified Control.Foldl as F
 import qualified Data.Bifunctor as BF
 import Mdh.Types
 import Turtle
+import Data.Text (unpack)
 
 -- | nodeSearch searches for successive nodes, that is, it finds the first node in a list,
 -- then searches from that nodes for the next, etc.
 -- If it doesn't find the node or is called with and empty list it returns `Nothing` (failure)
 nodeSearch :: MPath -> MdhTree FilePath -> Maybe (FilePath, MdhTree FilePath)
-nodeSearch [] _ = Nothing
+nodeSearch [] t = Just (label t, t)
 nodeSearch [n] t
   | label t == n = Just (n, t)
   | null mps = Nothing
@@ -69,19 +73,29 @@ strTreeToShell = select . strTreeToLines' 0
 
 -- # Logging Utilities
 
-mdhLog :: (MonadIO io, Show a) => Opts -> a -> io ()
-mdhLog opts = when (verbose opts) . stdout . ("LOG: " <>) . repr
+mdhLog :: (MonadIO io) => Opts -> Text -> io ()
+mdhLog opts = when (verbose opts) . stdout . return . unsafeTextToLine . ("LOG: " <>) 
 
-mdhWarn :: (MonadIO io, Show a) => Opts -> a -> io ()
-mdhWarn _ = stderr . ("WARNING: " <>) . repr
+mdhWarn :: (MonadIO io) => Opts -> Text -> io ()
+mdhWarn _ = stderr . return . unsafeTextToLine . ("WARNING: " <>) 
 
-mdhDie :: (MonadIO io, Show a) => a -> io ()
-mdhDie = die . ("KILLED: " <>) . repr
+mdhDie :: (MonadIO io) => Text -> io a
+mdhDie = die . ("KILLED: " <>) 
 
-mdhError :: String -> a
-mdhError = error . ("ERROR: " <>) . repr
+mdhError :: Text -> anything
+mdhError = error . unpack . ("ERROR: " <>)
 
 -- # File/Directory Management
+
+textExtensions :: [String]
+textExtensions = ["md", "text", "txt"]
+
+-- | is an extension in the list of allowable text file extension
+validTextExtension :: FilePath -> Bool
+validTextExtension = (`elem` map Just textExtensions) . extension
+
+validTextExtensionOrNone :: FilePath -> Bool
+validTextExtensionOrNone = (`elem` (Nothing : map Just textExtensions)) . extension
 
 -- | take a relative path and format it to absolute
 formatRelPath :: (MonadIO io) => FilePath -> io FilePath
