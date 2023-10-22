@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 module Mdh.Utils
   ( getTree,
@@ -13,7 +14,7 @@ module Mdh.Utils
     textExtensions,
     validTextExtension,
     validTextExtensionOrNone,
-    dayMonth,
+    dayMonthYear,
   )
 where
 
@@ -151,15 +152,14 @@ getTree c = clipDirTree c <$> getFullDirTree c
 
 -- # Time and Dates
 
-utcTimeToDayAndMonth :: UTCTime -> Maybe (Text, Text)
-utcTimeToDayAndMonth t = 
+utcTimeToDMY :: UTCTime -> Maybe (Text, Text, Text)
+utcTimeToDMY t = 
   if length ts /= 3
     then Nothing
     else do
-      let m = ts !! 1
-          d = ts !! 2 
+      let (y:m:d:_) = ts
       mNum <- toMonthText $ unpack m
-      return (d, mNum)
+      return (d, mNum, y)
   where 
     ymd'other = head . split (==' ') . (fromString . show) :: UTCTime -> Text
     year'month'day = split (=='-') . ymd'other 
@@ -173,7 +173,7 @@ utcTimeToDayAndMonth t =
 
 -- | Attempt to get the current day and month of system as text
 -- example success might return `Just ("19","jan")`
-dayMonth :: (MonadIO io) => io (Maybe (Text, Text))
-dayMonth = utcTimeToDayAndMonth <$> date
-    
+dayMonthYear :: (MonadIO io) => io (Maybe (Text, Text, Text))
+dayMonthYear = utcTimeToDMY <$> date
+
 
