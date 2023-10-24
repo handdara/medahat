@@ -1,6 +1,6 @@
 cabal-version:      3.6
 name:               medahat
-version:            0.1.0.0
+version:            0.1.1.0
 
 -- A short (one-line) description of the package.
 -- synopsis: markdown tool for handdara
@@ -24,19 +24,19 @@ maintainer:         handdara.core@gmail.com
 common shared-props
     default-language: Haskell2010
     build-depends:  
-        base, 
+        base ^>=4.16.4.0, 
         aeson,
         text,
         time,
         turtle,
         foldl,
         bytestring
-    ghc-options: -Wall 
+    ghc-options: -Wall -Wno-type-defaults 
     default-extensions: OverloadedStrings
 
 library medahat-internal
     import: shared-props
-    exposed-modules: Mdh.Config, Mdh.Utils, Mdh.Types
+    exposed-modules: Mdh.Config, Mdh.Utils, Mdh.Types, Mdh.File
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
@@ -45,7 +45,7 @@ library medahat-internal
 library
     import: shared-props
     -- Modules included in this library but not exported.
-    other-modules: Mdh.Config, Mdh.Utils, Mdh.Types
+    other-modules: Mdh.Config, Mdh.Utils, Mdh.Types, Mdh.File
     exposed-modules: Mdh
     build-depends: medahat:medahat-internal
     hs-source-dirs: src

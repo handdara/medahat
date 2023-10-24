@@ -1,88 +1,34 @@
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
-module Mdh.Utils (
-  getTree,
-  strTreeToShell,
-  absoluteMdhDir,
-  mdhLog,
-  mdhWarn,
-  mdhError,
-  mdhDie,
-  nodeSearch,
-) where
+module Mdh.Utils
+  ( getTree,
+    strTreeToShell,
+    absoluteMdhDir,
+    mdhLog,
+    mdhWarn,
+    mdhError,
+    mdhDie,
+    nodeSearch,
+    formatRelPath,
+    textExtensions,
+    validTextExtension,
+    validTextExtensionOrNone,
+    dayMonthYear,
+  )
+where
 
 import qualified Control.Foldl as F
 import qualified Data.Bifunctor as BF
 import Mdh.Types
-import Mdh.Config
 import Turtle
+import Data.Text (unpack, split)
 
--- # Typeclass Implementations
--- ## MdhTree
--- ### Show
-showWithTabNumber :: (Show s) => Int -> MdhTree s -> String
-showWithTabNumber n (MNode l []) = replicate (2 * n) ' ' ++ show l ++ "\n"
-showWithTabNumber n (MNode l cs) =
-  replicate (2 * n) ' '
-    ++ show l
-    ++ "\n"
-    ++ foldr1 (++) childStrings
-  where
-    childStrings = map (showWithTabNumber (n + 1)) cs
-
-instance (Show a) => Show (MdhTree a) where
-  show = showWithTabNumber 0
-
--- ### Eq
-instance (Eq a) => Eq (MdhTree a) where
-  l == r = (label l == label r) && (children l == children r)
-
--- ### Semigroup
-insert :: (Eq a, Monoid a) => MdhTree a -> MdhTree a -> MdhTree a
--- Even if the left lable == right label, no children to add
--- if the left table /= the right label, then don't add anything
-insert (MNode _ []) r = r
-insert (MNode ll lcs) (MNode rl []) =
-  if ll == rl
-    then MNode rl lcs
-    else MNode rl []
-insert (MNode ll [lc]) (MNode rl rcs)
-  | ll /= rl = MNode rl (insert leftTree `map` rcs)
-  | label lc `elem` map label rcs = MNode rl (insert lc `map` rcs)
-  | otherwise = MNode rl (lc : rcs)
-  where
-    leftTree = MNode ll [lc]
-insert (MNode ll (lc : lcs)) r =
-  insert lsingle (insert lmult r)
-  where
-    lsingle = MNode ll [lc]
-    lmult = MNode ll lcs
-
-instance (Eq a, Monoid a) => Semigroup (MdhTree a) where
-  l <> r
-    | l `inMTree` r = insert l {-into-} r
-    | label r == mempty = MNode mempty (l : children r)
-    | label l == mempty = MNode mempty (r : children l)
-    | otherwise = MNode mempty [l, r]
-
-inMTree :: (Eq a) => MdhTree a -> MdhTree a -> Bool
-inMTree l r
-  | label l == label r = True
-  | otherwise = foldr (\c acc -> label l == label c || acc) False (children r)
-
--- ## Conversions
-
--- | pathToNodes just splits on '/'
--- >>> pathToNodes "/home/name/mdhtests"
-pathToNodes :: FilePath -> MPath
-pathToNodes p =
-  [ filter (`notElem` ("/\\" :: FilePath)) n
-    | n <- splitDirectories p,
-      n /= "/"
-  ]
-
+-- | nodeSearch searches for successive nodes, that is, it finds the first node in a list,
+-- then searches from that nodes for the next, etc.
+-- If it doesn't find the node or is called with and empty list it returns `Nothing` (failure)
 nodeSearch :: MPath -> MdhTree FilePath -> Maybe (FilePath, MdhTree FilePath)
-nodeSearch [ ] _ = mdhError "nodeSearch called with empty list"
+nodeSearch [] t = Just (label t, t)
 nodeSearch [n] t
   | label t == n = Just (n, t)
   | null mps = Nothing
@@ -98,9 +44,26 @@ nodeSearch (n : ns) t =
   where
     dropFirst = foldr1 (</>) . tail . splitDirectories
 
+-- ## Conversions
+
+nodeListToTree :: [a] -> MdhTree a
+nodeListToTree [] = mdhError "can't call nodeListToTree with empty list"
 nodeListToTree [x] = MNode x []
 nodeListToTree (x : xs) = MNode x [nodeListToTree xs]
 
+-- | pathToNodes just splits on '/'
+-- >>> pathToNodes "/home/name/mdhtests"
+pathToNodes :: FilePath -> MPath
+pathToNodes p =
+  [ filter (`notElem` ("/\\" :: FilePath)) n
+    | n <- splitDirectories p,
+      n /= "/"
+  ]
+
+-- | This takes a single directory path, taken literally, returns the
+-- the equivalent tree, where each node only should have a single child
+-- - the path is taken literally, i.e. "~/example" yields  "~" --> "example"
+pathToTree :: FilePath -> MdhTree FilePath
 pathToTree = nodeListToTree . pathToNodes
 
 strTreeToShell :: MdhTree String -> Shell Line
@@ -112,29 +75,41 @@ strTreeToShell = select . strTreeToLines' 0
 
 -- # Logging Utilities
 
-mdhLog :: (MonadIO io) => Opts -> Shell Line -> io ()
-mdhLog opts msg = when (verbose opts) (stdout $ "LOG: " <> msg)
+mdhLog :: (MonadIO io) => Opts -> Text -> io ()
+mdhLog opts = when (verbose opts) . stdout . return . unsafeTextToLine . ("LOG: " <>) 
 
-mdhWarn :: (MonadIO io) => Shell Line -> io ()
-mdhWarn = stderr . ("WARNING: " <>)
+mdhWarn :: (MonadIO io) => Opts -> Text -> io ()
+mdhWarn _ = stderr . return . unsafeTextToLine . ("WARNING: " <>) 
 
-mdhDie :: (MonadIO io) => Text -> io ()
-mdhDie = die . ("ERROR: " <>)
+mdhDie :: (MonadIO io) => Text -> io a
+mdhDie = die . ("KILLED: " <>) 
 
-mdhError :: String -> a
-mdhError = error . ("ERROR: " <>)
+mdhError :: Text -> anything
+mdhError = error . unpack . ("ERROR: " <>)
 
 -- # File/Directory Management
 
+textExtensions :: [String]
+textExtensions = ["md", "text", "txt"]
+
+-- | is an extension in the list of allowable text file extension
+validTextExtension :: FilePath -> Bool
+validTextExtension = (`elem` map Just textExtensions) . extension
+
+validTextExtensionOrNone :: FilePath -> Bool
+validTextExtensionOrNone = (`elem` (Nothing : map Just textExtensions)) . extension
+
+-- | take a relative path and format it to absolute
 formatRelPath :: (MonadIO io) => FilePath -> io FilePath
 formatRelPath d =
-  if head (head sds) == '~'
-    then (</> foldl (</>) mempty (tail sds)) <$> home
-    else error "MdhUtils.hs:132: fix this spot (which error?)"
+  case head d of
+    '~' -> home <&> (</> dropFirst d)
+    '.' -> pwd <&> (</> dropFirst d)
+    _ -> pwd <&> (</> d)
   where
-    sds = splitDirectories d
+    dropFirst = foldl (</>) mempty . tail . splitDirectories
 
-absoluteMdhDir :: MonadIO io => Config -> io FilePath
+absoluteMdhDir :: (MonadIO io) => Config -> io FilePath
 absoluteMdhDir cfg =
   if isAbsolute d
     then return d
@@ -160,11 +135,6 @@ getFullDirTree c =
     tsl <- fold ts F.list
     return (foldr1 (<>) tsl)
 
--- Mostly a debug func, dumps the list of subdirectories at mdhDir
--- Used to develop the code to get the directory tree
-dumpDirTree :: (MonadIO io) => Config -> io ()
-dumpDirTree = stdout . (strTreeToShell <=< getFullDirTree)
-
 getRootNodeName :: Config -> FilePath
 getRootNodeName = last . splitDirectories . mdhDir
 
@@ -179,3 +149,31 @@ clipDirTree c t
 
 getTree :: (MonadIO io) => Config -> io (Maybe (MdhTree FilePath))
 getTree c = clipDirTree c <$> getFullDirTree c
+
+-- # Time and Dates
+
+utcTimeToDMY :: UTCTime -> Maybe (Text, Text, Text)
+utcTimeToDMY t = 
+  if length ts /= 3
+    then Nothing
+    else do
+      let (y:m:d:_) = ts
+      mNum <- toMonthText $ unpack m
+      return (d, mNum, y)
+  where 
+    ymd'other = head . split (==' ') . (fromString . show) :: UTCTime -> Text
+    year'month'day = split (=='-') . ymd'other 
+    ts = year'month'day t
+    months = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"]
+    toMonthText mt = do
+      let mi = read mt - 1:: Int
+      if 0 <= mi && mi <= 11 
+        then Just (months !! mi)
+        else Nothing
+
+-- | Attempt to get the current day and month of system as text
+-- example success might return `Just ("19","jan","2023")`
+dayMonthYear :: (MonadIO io) => io (Maybe (Text, Text, Text))
+dayMonthYear = utcTimeToDMY <$> date
+
+
