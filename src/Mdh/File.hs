@@ -1,12 +1,12 @@
 module Mdh.File
   ( readToShell,
     readToNumberedShell,
+    mdhTouch,
   )
 where
 
-import Prelude hiding (FilePath)
-
 import Turtle
+import Prelude hiding (FilePath)
 
 -- # File Reading/ Parsing
 
@@ -23,4 +23,10 @@ readToNumberedShell = nl . input
 
 -- # File Editing
 
--- # File Editing
+-- | Special touch function that drops a small test string into instead of just creating it empty. 
+-- This is because some editors (including neovim) have issues opening completely empty files
+mdhTouch :: MonadIO io => FilePath -> io ()
+mdhTouch file = do
+  file'exists <- testfile file
+  unless file'exists $ do
+    output file (return "MDH NEW")

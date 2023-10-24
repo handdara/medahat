@@ -172,7 +172,7 @@ utcTimeToDMY t =
         else Nothing
 
 -- | Attempt to get the current day and month of system as text
--- example success might return `Just ("19","jan")`
+-- example success might return `Just ("19","jan","2023")`
 dayMonthYear :: (MonadIO io) => io (Maybe (Text, Text, Text))
 dayMonthYear = utcTimeToDMY <$> date
 

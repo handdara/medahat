@@ -90,9 +90,10 @@ instance (Eq a) => Eq (MdhTree a) where
   lab == r = (label lab == label r) && (children lab == children r)
 
 -- ### Semigroup
-insert :: (Eq a, Monoid a) => MdhTree a -> MdhTree a -> MdhTree a
+
 -- Even if the left lable == right label, no children to add
 -- if the left table /= the right label, then don't add anything
+insert :: (Eq a, Monoid a) => MdhTree a -> MdhTree a -> MdhTree a
 insert (MNode _ []) r = r
 insert (MNode ll lcs) (MNode rl []) =
   if ll == rl
@@ -132,8 +133,7 @@ instance ToJSON Config where
     pairs ("mdhDir" .= mDir <> "editor" .= mEditor <> "openLine" .= b)
 
 instance FromJSON Config where
-  parseJSON = withObject "Config" $ \v ->
-    Config
+  parseJSON = withObject "Config" $ \v -> Config
       <$> v
         .: "mdhDir"
       <*> v

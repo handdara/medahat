@@ -7,6 +7,8 @@ module Mdh
     openNoteCmd,
     mkNode,
     mkNote,
+    quickWorkCmd,
+    quickPersonalCmd,
   )
 where
 
@@ -16,8 +18,33 @@ import Mdh.Config
 import Mdh.Types
 import Mdh.Utils
 import Turtle
+import Mdh.File (mdhTouch)
 
 -- # CLI Command Funcs
+
+quickDateBasedOpen :: MonadIO io => Config -> Opts -> FilePath -> io ()
+quickDateBasedOpen mConf mOpts folder = do
+  maybe'dmy <- dayMonthYear
+  case maybe'dmy of
+    Nothing -> mdhError "Couldn't get the date"
+    Just (day, month, year) -> do
+      mdhLog mOpts $ "date: " <> day <> month <> year
+
+      -- calc file path
+      dir'abs <- absoluteMdhDir mConf <&> (</> folder)
+      let file'abs = dir'abs </> unpack (month <> year) <.> "md"
+
+      -- ensuring dir and then file exist
+      mktree dir'abs
+      mdhTouch file'abs
+
+      editFile mConf mOpts file'abs
+
+quickPersonalCmd :: (MonadIO io) => Config -> Opts -> io ()
+quickPersonalCmd mConf mOpts = quickDateBasedOpen mConf mOpts "personal"
+
+quickWorkCmd :: (MonadIO io) => Config -> Opts -> io ()
+quickWorkCmd mConf mOpts = quickDateBasedOpen mConf mOpts "work"
 
 -- makeRelMdhDirAbsolute :: Config -> FilePath -> io FilePath
 mkRelMdhDirAbsolute :: (MonadIO io) => Config -> FilePath -> io FilePath
@@ -50,12 +77,17 @@ textFilesAtRelDir'tree mCfg mOpts p = do
     else empty
 
 -- | The function that actually opens the editor
-editFile :: (MonadIO io) => Config -> FilePath -> io ()
-editFile mCfg file = do
+editFile :: (MonadIO io) => Config -> Opts -> FilePath -> io ()
+editFile mConf mOpts file = do
+  let args = ["--", file]
+  let command'list = editor mConf : args
+  let command = fromString $ unwords command'list
+  mdhLog mOpts $ "command: " <> command
+
   previous <- pwd
-  mdhPath <- absoluteMdhDir mCfg
+  mdhPath <- absoluteMdhDir mConf
   cd mdhPath
-  procs (fromString $ editor mCfg) [fromString file] empty
+  shells command empty
   cd previous
 
 -- | TODO: Variation of `editFile` that will open to a specific line
@@ -88,7 +120,7 @@ findAndOpenTextFile mCfg mOpts path name = do
     Nothing -> mdhDie "No files found"
     Just p -> do
       when (numFilesFound > 1) $ dumpFiles mOpts possibleFiles
-      editFile mCfg p
+      editFile mCfg mOpts p
   where
     dumpFiles mo fs = do
       mdhWarn mo "More than one acceptable file found, opening first"
@@ -149,4 +181,4 @@ mkNote mConf mOpts ns newTxtFile touchFlag = do
           else newTxtFile <.> "md"
       }
       touch toWrite
-      unless touchFlag $ editFile mConf toWrite
+      unless touchFlag $ editFile mConf mOpts toWrite
