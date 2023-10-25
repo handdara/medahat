@@ -180,5 +180,5 @@ mkNote mConf mOpts ns newTxtFile touchFlag = do
           then newTxtFile
           else newTxtFile <.> "md"
       }
-      touch toWrite
+      mdhTouch toWrite
       unless touchFlag $ editFile mConf mOpts toWrite
