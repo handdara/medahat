@@ -1,22 +1,11 @@
 
 module Mdh.Types
-  ( Opts (Opts, verbose, cfgDir),
-    MdhCommands
-      ( ShowTree,
-        QuickWork,
-        QuickPersonal,
-        ShowNotes,
-        OpenNote,
-        MakeNode,
-        nodes,
-        newNode,
-        MakeNote,
-        newNote
-      ),
-    Command (Command, cmd, opts),
+  ( Opts (..),
+    MdhCommands (..),
+    Command (..),
     MPath,
-    MdhTree (MNode, label, children),
-    Config (Config, mdhDir, editor, openToLine),
+    MdhTree (..),
+    Config (..),
   )
 where
 
@@ -58,7 +47,7 @@ data MdhCommands
   | MakeNote {nodes :: MPath, newNote :: FilePath, edit :: Bool}
   deriving (Show)
 
--- | Packages 'Opts' and 'MdhComands' together
+-- | Packages 'Opts' and 'MdhCommands' together
 data Command = Command
   { cmd :: Maybe MdhCommands,
     opts :: Opts
