@@ -19,6 +19,7 @@ import Mdh.Types
 import Mdh.Utils
 import Turtle
 import Mdh.File (mdhTouch)
+import Prelude hiding (FilePath)
 
 -- # CLI Command Funcs
 
@@ -31,7 +32,7 @@ quickDateBasedOpen mConf mOpts folder = do
       mdhLog mOpts $ "date: " <> day <> month <> year
 
       -- calc file path
-      dir'abs <- absoluteMdhDir mConf <&> (</> folder)
+      dir'abs <- absoluteMdhDir mConf <&> (</> folder </> unpack year)
       let file'abs = dir'abs </> unpack (month <> year) <.> "md"
 
       -- ensuring dir and then file exist
