@@ -23,8 +23,8 @@ import Prelude hiding (FilePath)
 
 -- # CLI Command Funcs
 
-quickDateBasedOpen :: MonadIO io => Config -> Opts -> FilePath -> io ()
-quickDateBasedOpen mConf mOpts folder = do
+quickDateBasedOpen :: MonadIO io => Config -> Opts -> FilePath -> FilePath -> io ()
+quickDateBasedOpen mConf mOpts folder prefix = do
   maybe'dmy <- dayMonthYear
   case maybe'dmy of
     Nothing -> mdhError "Couldn't get the date"
@@ -32,20 +32,20 @@ quickDateBasedOpen mConf mOpts folder = do
       mdhLog mOpts $ "date: " <> day <> month <> year
 
       -- calc file path
-      dir'abs <- absoluteMdhDir mConf <&> (</> folder </> unpack year)
+      dir'abs <- absoluteMdhDir mConf <&> (</> folder </> (prefix <> unpack year) )
       let file'abs = dir'abs </> unpack (month <> year) <.> "md"
 
       -- ensuring dir and then file exist
       mktree dir'abs
       mdhTouch file'abs
 
-      editFile mConf mOpts file'abs
+      editFile mConf mOpts file'abs (Just folder)
 
 quickPersonalCmd :: (MonadIO io) => Config -> Opts -> io ()
-quickPersonalCmd mConf mOpts = quickDateBasedOpen mConf mOpts "personal"
+quickPersonalCmd mConf mOpts = quickDateBasedOpen mConf mOpts "personal" "p"
 
 quickWorkCmd :: (MonadIO io) => Config -> Opts -> io ()
-quickWorkCmd mConf mOpts = quickDateBasedOpen mConf mOpts "work"
+quickWorkCmd mConf mOpts = quickDateBasedOpen mConf mOpts "work" "w"
 
 -- makeRelMdhDirAbsolute :: Config -> FilePath -> io FilePath
 mkRelMdhDirAbsolute :: (MonadIO io) => Config -> FilePath -> io FilePath
@@ -78,8 +78,8 @@ textFilesAtRelDir'tree mCfg mOpts p = do
     else empty
 
 -- | The function that actually opens the editor
-editFile :: (MonadIO io) => Config -> Opts -> FilePath -> io ()
-editFile mConf mOpts file = do
+editFile :: (MonadIO io) => Config -> Opts -> FilePath -> Maybe FilePath -> io ()
+editFile mConf mOpts file m'subfldr = do
   let args = ["--", file]
   let command'list = editor mConf : args
   let command = fromString $ unwords command'list
@@ -87,7 +87,10 @@ editFile mConf mOpts file = do
 
   previous <- pwd
   mdhPath <- absoluteMdhDir mConf
-  cd mdhPath
+  let mdhPath'sf = case m'subfldr of
+        Nothing -> mdhPath
+        Just sf -> mdhPath </> sf
+  cd mdhPath'sf
   shells command empty
   cd previous
 
@@ -121,7 +124,7 @@ findAndOpenTextFile mCfg mOpts path name = do
     Nothing -> mdhDie "No files found"
     Just p -> do
       when (numFilesFound > 1) $ dumpFiles mOpts possibleFiles
-      editFile mCfg mOpts p
+      editFile mCfg mOpts p Nothing
   where
     dumpFiles mo fs = do
       mdhWarn mo "More than one acceptable file found, opening first"
@@ -182,4 +185,4 @@ mkNote mConf mOpts ns newTxtFile touchFlag = do
           else newTxtFile <.> "md"
       }
       mdhTouch toWrite
-      unless touchFlag $ editFile mConf mOpts toWrite
+      unless touchFlag $ editFile mConf mOpts toWrite Nothing
